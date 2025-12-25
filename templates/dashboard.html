@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Публикация - Автопостинг</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #555;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: #667eea;
+        }
+
+        .nav-link.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .login-status {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 40px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .not-connected-warning {
+            background: white;
+            border: 2px solid #ff9800;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .not-connected-warning h3 {
+            color: #ff9800;
+            margin-bottom: 10px;
+        }
+
+        .not-connected-warning p {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .connect-link {
+            padding: 10px 20px;
+            background: #ff9800;
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .connect-link:hover {
+            background: #f57c00;
+        }
+
+        .main-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            padding: 40px;
+        }
+
+        .social-selector {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .social-card {
+            border: 2px solid #667eea;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f0f4ff;
+            position: relative;
+        }
+
+        .social-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .social-card.inactive {
+            border-color: #e0e0e0;
+            background: #f9f9f9;
+            opacity: 0.7;
+        }
+
+        .social-card.disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .social-card input[type="checkbox"] {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+        }
+
+        .social-card input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+        }
+
+        .social-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .social-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .form-section {
+            margin-bottom: 25px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .form-section.hidden {
+            display: none;
+        }
+
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        textarea,
+        select,
+        input[type="datetime-local"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+            background: white;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus,
+        input[type="datetime-local"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .char-counter {
+            text-align: right;
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .char-counter.warning {
+            color: #ff9800;
+            font-weight: 600;
+        }
+
+        .char-counter.error {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .schedule-section {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .schedule-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .schedule-options {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .radio-option input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .schedule-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .schedule-fields.hidden {
+            display: none;
+        }
+
+        .upload-section {
+            background: #e3f2fd;
+            border: 3px dashed #2196f3;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            background: #bbdefb;
+            border-color: #1976d2;
+        }
+
+        .upload-section input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 60px;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .publish-btn {
+            width: 100%;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .publish-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .publish-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .social-selector {
+                grid-template-columns: 1fr;
+            }
+            
+            .schedule-fields {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">🚀 Автопостинг</div>
+        <div class="nav-menu">
+            <a href="{{ url_for('dashboard') }}" class="nav-link active">Публикация</a>
+            <a href="{{ url_for('settings') }}" class="nav-link">Настройки</a>
+        </div>
+        <div class="user-info">
+            <span class="user-name">{{ user.name or user.email }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Выйти</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="login-status">
+            <span style="font-size: 20px;">✓</span>
+            <span>Вы залогинены</span>
+        </div>
+
+        {% if not (connected.youtube or connected.instagram or connected.tiktok or connected.vk) %}
+        <div class="not-connected-warning">
+            <h3>⚠️ Соцсети не подключены</h3>
+            <p>Для публикации постов необходимо подключить хотя бы одну социальную сеть.</p>
+            <a href="{{ url_for('settings') }}" class="connect-link">Подключить соцсети</a>
+        </div>
+        {% endif %}
+
+        <h1>📱 Автопостинг в соцсети</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="main-card">
+            <div class="social-selector">
+                <div class="social-card {% if not connected.youtube %}disabled{% endif %}" onclick="toggleSocial('youtube')">
+                    <input type="checkbox" id="youtube-check" {% if connected.youtube %}checked{% else %}disabled{% endif %} onchange="updateSections()" onclick="event.stopPropagation()">
+                    <div class="social-icon">🎥</div>
+                    <div class="social-name">YouTube</div>
+                    {% if not connected.youtube %}<div style="font-size: 11px; color: #999; margin-top: 5px;">Не подключен</div>{% endif %}
+                </div>
+                <div class="social-card {% if not connected.instagram %}disabled{% endif %}" onclick="toggleSocial('instagram')">
+                    <input type="checkbox" id="instagram-check" {% if connected.instagram %}checked{% else %}disabled{% endif %} onchange="updateSections()" onclick="event.stopPropagation()">
+                    <div class="social-icon">📷</div>
+                    <div class="social-name">Instagram</div>
+                    {% if not connected.instagram %}<div style="font-size: 11px; color: #999; margin-top: 5px;">Не подключен</div>{% endif %}
+                </div>
+                <div class="social-card {% if not connected.tiktok %}disabled{% endif %}" onclick="toggleSocial('tiktok')">
+                    <input type="checkbox" id="tiktok-check" {% if connected.tiktok %}checked{% else %}disabled{% endif %} onchange="updateSections()" onclick="event.stopPropagation()">
+                    <div class="social-icon">🎵</div>
+                    <div class="social-name">Tik-Tok</div>
+                    {% if not connected.tiktok %}<div style="font-size: 11px; color: #999; margin-top: 5px;">Не подключен</div>{% endif %}
+                </div>
+                <div class="social-card {% if not connected.vk %}disabled{% endif %}" onclick="toggleSocial('vk')">
+                    <input type="checkbox" id="vk-check" {% if connected.vk %}checked{% else %}disabled{% endif %} onchange="updateSections()" onclick="event.stopPropagation()">
+                    <div class="social-icon">🌐</div>
+                    <div class="social-name">Vk.com</div>
+                    {% if not connected.vk %}<div style="font-size: 11px; color: #999; margin-top: 5px;">Не подключен</div>{% endif %}
+                </div>
+            </div>
+
+            <form id="postForm">
+                <div id="youtube-section" class="form-section {% if not connected.youtube %}hidden{% endif %}">
+                    <div class="section-title"><span>🎥</span> YouTube</div>
+                    <div class="input-group">
+                        <label>Введите заголовок</label>
+                        <input type="text" id="yt-title" maxlength="100" oninput="updateCounter('yt-title', 100)">
+                        <div id="yt-title-counter" class="char-counter">0 / 100 символов</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Введите описание</label>
+                        <textarea id="yt-description" maxlength="5000" oninput="updateCounter('yt-description', 5000)"></textarea>
+                        <div id="yt-description-counter" class="char-counter">0 / 5000 символов</div>
+                    </div>
+                    <div class="input-group">
+                        <label>Введите хеш-теги</label>
+                        <input type="text" id="yt-tags" maxlength="500" placeholder="#видео #контент" oninput="updateCounter('yt-tags', 500)">
+                        <div id="yt-tags-counter" class="char-counter">0 / 500 символов</div>
+                    </div>
+                </div>
+
+                <div id="tiktok-section" class="form-section {% if not connected.tiktok %}hidden{% endif %}">
+                    <div class="section-title"><span>🎵</span> Tik-Tok</div>
+                    <div class="input-group">
+                        <label>Введите описание и хеш-теги</label>
+                        <textarea id="tt-caption" maxlength="2200" placeholder="Ваш текст и #хештеги" oninput="updateCounter('tt-caption', 2200)"></textarea>
+                        <div id="tt-caption-counter" class="char-counter">0 / 2200 символов</div>
+                    </div>
+                </div>
+
+                <div id="instagram-section" class="form-section {% if not connected.instagram %}hidden{% endif %}">
+                    <div class="section-title"><span>📷</span> Instagram</div>
+                    <div class="input-group">
+                        <label>Введите описание и хеш-теги</label>
+                        <textarea id="ig-caption" maxlength="2200" placeholder="Ваш текст и #хештеги" oninput="updateCounter('ig-caption', 2200)"></textarea>
+                        <div id="ig-caption-counter" class="char-counter">0 / 2200 символов</div>
+                    </div>
+                </div>
+
+                <div id="vk-section" class="form-section {% if not connected.vk %}hidden{% endif %}">
+                    <div class="section-title"><span>🌐</span> Vk.com</div>
+                    <div class="input-group">
+                        <label>Введите описание и хеш-теги</label>
+                        <textarea id="vk-caption" maxlength="16384" placeholder="Ваш текст и #хештеги" oninput="updateCounter('vk-caption', 16384)"></textarea>
+                        <div id="vk-caption-counter" class="char-counter">0 / 16384 символов</div>
+                    </div>
+                </div>
+
+                <div class="schedule-section">
+                    <div class="schedule-title"><span>⏰</span> Расписание</div>
+                    <div class="schedule-options">
+                        <label class="radio-option">
+                            <input type="radio" name="schedule" value="now" checked onchange="toggleScheduleFields()">
+                            <span>Опубликовать сейчас</span>
+                        </label>
+                        <label class="radio-option">
+                            <input type="radio" name="schedule" value="later" onchange="toggleScheduleFields()">
+                            <span>По расписанию</span>
+                        </label>
+                    </div>
+                    <div id="schedule-fields" class="schedule-fields hidden">
+                        <div class="input-group">
+                            <label>Часовой пояс</label>
+                            <select id="timezone">
+                                <option value="UTC+3" selected>UTC+3 (Москва)</option>
+                                <option value="UTC+0">UTC+0 (Лондон)</option>
+                                <option value="UTC+1">UTC+1 (Берлин)</option>
+                                <option value="UTC+2">UTC+2 (Киев)</option>
+                                <option value="UTC-5">UTC-5 (Нью-Йорк)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Дата и время</label>
+                            <input type="datetime-local" id="publish-time">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-section" onclick="document.getElementById('video-file').click()">
+                    <input type="file" id="video-file" accept="video/*,image/*" onchange="handleFileSelect(event)">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">Загрузить видео</div>
+                    <div class="upload-hint">Кликните или перетащите файл</div>
+                    <div id="file-info" class="file-info">
+                        <strong>Файл:</strong> <span id="file-name"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="publish-btn">🚀 Опубликовать</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSections();
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            document.getElementById('publish-time').min = now.toISOString().slice(0, 16);
+        });
+
+        function toggleSocial(platform) {
+            const checkbox = document.getElementById(platform + '-check');
+            if (!checkbox.disabled) {
+                checkbox.checked = !checkbox.checked;
+                updateSections();
+            }
+        }
+
+        function updateSections() {
+            ['youtube', 'instagram', 'tiktok', 'vk'].forEach(platform => {
+                const checked = document.getElementById(platform + '-check').checked;
+                const section = document.getElementById(platform + '-section');
+                const card = document.querySelector(`[onclick="toggleSocial('${platform}')"]`);
+                
+                if (!section) return;
+                
+                section.classList.toggle('hidden', !checked);
+                if (!card.classList.contains('disabled')) {
+                    card.classList.toggle('inactive', !checked);
+                }
+            });
+        }
+
+        function updateCounter(fieldId, maxLength) {
+            const field = document.getElementById(fieldId);
+            const counter = document.getElementById(fieldId + '-counter');
+            const length = field.value.length;
+            counter.textContent = `${length} / ${maxLength} символов`;
+            counter.classList.remove('warning', 'error');
+            if (length > maxLength * 0.9) counter.classList.add('warning');
+            if (length === maxLength) counter.classList.add('error');
+        }
+
+        function toggleScheduleFields() {
+            const type = document.querySelector('input[name="schedule"]:checked').value;
+            document.getElementById('schedule-fields').classList.toggle('hidden', type === 'now');
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                document.getElementById('file-name').textContent = file.name;
+                document.getElementById('file-info').classList.add('show');
+            }
+        }
+
+        document.getElementById('postForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const file = document.getElementById('video-file').files[0];
+            
+            if (!file) {
+                alert('⚠️ Загрузите файл!');
+                return;
+            }
+
+            const platforms = ['youtube', 'instagram', 'tiktok', 'vk'];
+            let hasSelected = false;
+            
+            platforms.forEach(p => {
+                const checked = document.getElementById(p + '-check').checked;
+                if (checked) hasSelected = true;
+                formData.append(p + '_enabled', checked);
+            });
+
+            if (!hasSelected) {
+                alert('⚠️ Выберите хотя бы одну соцсеть!');
+                return;
+            }
+
+            formData.append('video', file);
+            formData.append('youtube_title', document.getElementById('yt-title').value);
+            formData.append('youtube_description', document.getElementById('yt-description').value);
+            formData.append('youtube_tags', document.getElementById('yt-tags').value);
+            formData.append('instagram_caption', document.getElementById('ig-caption').value);
+            formData.append('tiktok_caption', document.getElementById('tt-caption').value);
+            formData.append('vk_caption', document.getElementById('vk-caption').value);
+            formData.append('schedule_type', document.querySelector('input[name="schedule"]:checked').value);
+            formData.append('scheduled_time', document.getElementById('publish-time').value);
+            formData.append('timezone', document.getElementById('timezone').value);
+
+            try {
+                const response = await fetch('/api/publish', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ ' + result.message);
+                } else {
+                    alert('❌ ' + result.message);
+                }
+            } catch (error) {
+                alert('❌ Ошибка: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
