@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки - Подключение соцсетей</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .navbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .nav-menu {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .nav-link {
+            color: #555;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-link:hover {
+            color: #667eea;
+        }
+
+        .nav-link.active {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .logout-btn {
+            padding: 8px 16px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .logout-btn:hover {
+            background: #d32f2f;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .platforms-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .platform-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+        }
+
+        .platform-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.12);
+        }
+
+        .platform-card.connected {
+            border: 2px solid #4caf50;
+            background: linear-gradient(135deg, #f1f8f4 0%, #ffffff 100%);
+        }
+
+        .platform-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .platform-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .platform-icon {
+            font-size: 36px;
+        }
+
+        .platform-name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-connected {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-not-connected {
+            background: #e0e0e0;
+            color: #666;
+        }
+
+        .platform-info {
+            margin-bottom: 20px;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .platform-user {
+            background: #f0f4ff;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .platform-user strong {
+            color: #667eea;
+        }
+
+        .connect-btn, .disconnect-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        .connect-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .connect-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .disconnect-btn {
+            background: #f44336;
+            color: white;
+        }
+
+        .disconnect-btn:hover {
+            background: #d32f2f;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .info-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .info-list {
+            list-style: none;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 15px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .info-icon {
+            font-size: 20px;
+            margin-top: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .platforms-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .navbar {
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .nav-menu {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="logo">🚀 Автопостинг</div>
+        <div class="nav-menu">
+            <a href="{{ url_for('dashboard') }}" class="nav-link">Публикация</a>
+            <a href="{{ url_for('settings') }}" class="nav-link active">Настройки</a>
+        </div>
+        <div class="user-info">
+            <span class="user-name">{{ user.name or user.email }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Выйти</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>⚙️ Настройки</h1>
+        <p class="subtitle">Подключите ваши аккаунты в социальных сетях</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="platforms-grid">
+            <!-- YouTube -->
+            <div class="platform-card {% if platforms.youtube %}connected{% endif %}">
+                <div class="platform-header">
+                    <div class="platform-title">
+                        <span class="platform-icon">🎥</span>
+                        <span class="platform-name">YouTube</span>
+                    </div>
+                    <span class="status-badge {% if platforms.youtube %}status-connected{% else %}status-not-connected{% endif %}">
+                        {% if platforms.youtube %}✓ Подключен{% else %}Не подключен{% endif %}
+                    </span>
+                </div>
+                
+                <div class="platform-info">
+                    Загружайте видео напрямую на YouTube с автоматическим заполнением заголовка, описания и тегов.
+                </div>
+
+                {% if platforms.youtube %}
+                    <div class="platform-user">
+                        <strong>Аккаунт:</strong> {{ platforms.youtube.platform_username or 'Подключен' }}
+                    </div>
+                    <a href="{{ url_for('disconnect_platform', platform='youtube') }}" class="disconnect-btn">
+                        Отключить
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('connect_youtube') }}" class="connect-btn">
+                        Подключить YouTube
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Instagram -->
+            <div class="platform-card {% if platforms.instagram %}connected{% endif %}">
+                <div class="platform-header">
+                    <div class="platform-title">
+                        <span class="platform-icon">📷</span>
+                        <span class="platform-name">Instagram</span>
+                    </div>
+                    <span class="status-badge {% if platforms.instagram %}status-connected{% else %}status-not-connected{% endif %}">
+                        {% if platforms.instagram %}✓ Подключен{% else %}Не подключен{% endif %}
+                    </span>
+                </div>
+                
+                <div class="platform-info">
+                    Публикуйте фото и видео в Instagram с подписями и хештегами автоматически.
+                </div>
+
+                {% if platforms.instagram %}
+                    <div class="platform-user">
+                        <strong>Аккаунт:</strong> {{ platforms.instagram.platform_username or 'Подключен' }}
+                    </div>
+                    <a href="{{ url_for('disconnect_platform', platform='instagram') }}" class="disconnect-btn">
+                        Отключить
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('connect_instagram') }}" class="connect-btn">
+                        Подключить Instagram
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- TikTok -->
+            <div class="platform-card {% if platforms.tiktok %}connected{% endif %}">
+                <div class="platform-header">
+                    <div class="platform-title">
+                        <span class="platform-icon">🎵</span>
+                        <span class="platform-name">TikTok</span>
+                    </div>
+                    <span class="status-badge {% if platforms.tiktok %}status-connected{% else %}status-not-connected{% endif %}">
+                        {% if platforms.tiktok %}✓ Подключен{% else %}Не подключен{% endif %}
+                    </span>
+                </div>
+                
+                <div class="platform-info">
+                    Загружайте короткие видео в TikTok с описанием и хештегами одним кликом.
+                </div>
+
+                {% if platforms.tiktok %}
+                    <div class="platform-user">
+                        <strong>Аккаунт:</strong> {{ platforms.tiktok.platform_username or 'Подключен' }}
+                    </div>
+                    <a href="{{ url_for('disconnect_platform', platform='tiktok') }}" class="disconnect-btn">
+                        Отключить
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('connect_tiktok') }}" class="connect-btn">
+                        Подключить TikTok
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- VK -->
+            <div class="platform-card {% if platforms.vk %}connected{% endif %}">
+                <div class="platform-header">
+                    <div class="platform-title">
+                        <span class="platform-icon">🌐</span>
+                        <span class="platform-name">VK.com</span>
+                    </div>
+                    <span class="status-badge {% if platforms.vk %}status-connected{% else %}status-not-connected{% endif %}">
+                        {% if platforms.vk %}✓ Подключен{% else %}Не подключен{% endif %}
+                    </span>
+                </div>
+                
+                <div class="platform-info">
+                    Публикуйте видео и фото на стену или в группы ВКонтакте автоматически.
+                </div>
+
+                {% if platforms.vk %}
+                    <div class="platform-user">
+                        <strong>Аккаунт:</strong> {{ platforms.vk.platform_username or 'Подключен' }}
+                    </div>
+                    <a href="{{ url_for('disconnect_platform', platform='vk') }}" class="disconnect-btn">
+                        Отключить
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('connect_vk') }}" class="connect-btn">
+                        Подключить VK
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2 class="info-title">📋 Как это работает?</h2>
+            <ul class="info-list">
+                <li class="info-item">
+                    <span class="info-icon">1️⃣</span>
+                    <span>Нажмите "Подключить" на нужной соцсети</span>
+                </li>
+                <li class="info-item">
+                    <span class="info-icon">2️⃣</span>
+                    <span>Войдите в свой аккаунт и разрешите доступ</span>
+                </li>
+                <li class="info-item">
+                    <span class="info-icon">3️⃣</span>
+                    <span>Готово! Теперь можете публиковать контент через наш сервис</span>
+                </li>
+                <li class="info-item">
+                    <span class="info-icon">🔒</span>
+                    <span>Мы не храним ваши пароли, используется безопасная OAuth авторизация</span>
+                </li>
+                <li class="info-item">
+                    <span class="info-icon">✨</span>
+                    <span>Вы можете отозвать доступ в любой момент</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
