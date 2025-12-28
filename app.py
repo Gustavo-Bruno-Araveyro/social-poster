@@ -5,6 +5,10 @@ from authlib.integrations.flask_client import OAuth
 from datetime import datetime
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения из .env файла (для локальной разработки)
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -19,10 +23,23 @@ login_manager.login_view = 'login'
 oauth = OAuth(app)
 
 # Google OAuth
+google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+
+# Отладочный вывод (удалить после исправления)
+if not google_client_id:
+    print("⚠️ WARNING: GOOGLE_CLIENT_ID не установлен!")
+else:
+    print(f"✅ GOOGLE_CLIENT_ID загружен: {google_client_id[:20]}...")
+if not google_client_secret:
+    print("⚠️ WARNING: GOOGLE_CLIENT_SECRET не установлен!")
+else:
+    print(f"✅ GOOGLE_CLIENT_SECRET загружен: {google_client_secret[:10]}...")
+
 google = oauth.register(
     name='google',
-    client_id=os.environ.get('GOOGLE_CLIENT_ID'),
-    client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+    client_id=google_client_id,
+    client_secret=google_client_secret,
     server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
     client_kwargs={'scope': 'openid email profile'}
 )
@@ -128,15 +145,19 @@ def login_google():
 def authorize_google():
     try:
         token = google.authorize_access_token()
-        user_info = token.get('userinfo')
         
-        if user_info:
+        # Получаем информацию о пользователе из ID токена или через userinfo endpoint
+        resp = google.get('userinfo', token=token)
+        resp.raise_for_status()
+        user_info = resp.json()
+        
+        if user_info and 'sub' in user_info:
             user = User.query.filter_by(google_id=user_info['sub']).first()
             
             if not user:
                 # Создаём нового пользователя
                 user = User(
-                    email=user_info['email'],
+                    email=user_info.get('email'),
                     name=user_info.get('name'),
                     google_id=user_info['sub']
                 )
@@ -146,6 +167,8 @@ def authorize_google():
             login_user(user)
             flash('Успешный вход!', 'success')
             return redirect(url_for('dashboard'))
+        else:
+            flash('Не удалось получить данные пользователя', 'error')
     except Exception as e:
         flash(f'Ошибка авторизации: {str(e)}', 'error')
     
