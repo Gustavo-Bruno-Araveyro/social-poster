@@ -23,12 +23,21 @@ login_manager.login_view = 'login'
 oauth = OAuth(app)
 
 # Google OAuth
+# Отладочный вывод - показываем ВСЕ переменные окружения
+print("=" * 50)
+print("🔍 ВСЕ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ:")
+for key, value in sorted(os.environ.items()):
+    if 'GOOGLE' in key or 'SECRET' in key:
+        print(f"  {key} = {value}")
+print("=" * 50)
+
 google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
 google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
 
 # Отладочный вывод
 if not google_client_id:
     print("⚠️ WARNING: GOOGLE_CLIENT_ID не установлен!")
+    print(f"   Проверка os.environ: {list(os.environ.keys())}")
 else:
     print(f"✅ GOOGLE_CLIENT_ID загружен: {google_client_id[:20]}...")
 if not google_client_secret:
