@@ -26,7 +26,7 @@ oauth = OAuth(app)
 google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
 google_client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
 
-# Отладочный вывод (удалить после исправления)
+# Отладочный вывод
 if not google_client_id:
     print("⚠️ WARNING: GOOGLE_CLIENT_ID не установлен!")
 else:
@@ -36,13 +36,18 @@ if not google_client_secret:
 else:
     print(f"✅ GOOGLE_CLIENT_SECRET загружен: {google_client_secret[:10]}...")
 
-google = oauth.register(
-    name='google',
-    client_id=google_client_id,
-    client_secret=google_client_secret,
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'}
-)
+# Регистрируем OAuth только если переменные загружены
+if google_client_id and google_client_secret:
+    google = oauth.register(
+        name='google',
+        client_id=google_client_id,
+        client_secret=google_client_secret,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'}
+    )
+else:
+    print("❌ ОШИБКА: OAuth не зарегистрирован из-за отсутствия переменных!")
+    google = None
 
 # =========================
 # МОДЕЛИ БАЗЫ ДАННЫХ
@@ -138,6 +143,11 @@ def login():
 
 @app.route('/login/google')
 def login_google():
+    # Проверяем, что OAuth зарегистрирован
+    if not google or not google_client_id or not google_client_secret:
+        flash('Ошибка конфигурации OAuth. Обратитесь к администратору.', 'error')
+        return redirect(url_for('login'))
+    
     redirect_uri = url_for('authorize_google', _external=True)
     return google.authorize_redirect(redirect_uri)
 
