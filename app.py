@@ -1,8 +1,11 @@
 from flask import Flask, render_template, jsonify, request, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import traceback
+import requests
+import secrets
+from urllib.parse import urlencode
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-12345')
@@ -11,12 +14,21 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
+# Конфигурация YouTube OAuth
+YOUTUBE_CLIENT_ID = os.environ.get('YOUTUBE_CLIENT_ID')
+YOUTUBE_CLIENT_SECRET = os.environ.get('YOUTUBE_CLIENT_SECRET')
+YOUTUBE_REDIRECT_URI = os.environ.get('YOUTUBE_REDIRECT_URI', 'https://web-production-e92c4.up.railway.app/authorize/youtube')
+
 # Модели
 class SocialAccount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     platform = db.Column(db.String(50), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     platform_username = db.Column(db.String(200))
+    access_token = db.Column(db.Text)
+    refresh_token = db.Column(db.Text)
+    token_expires_at = db.Column(db.DateTime)
+    platform_user_id = db.Column(db.String(200))
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -87,26 +99,122 @@ def settings():
 def logout():
     return redirect(url_for('dashboard'))
 
-@app.route('/connect/<platform>')
-def connect_platform(platform):
-    flash(f'Подключение {platform} будет реализовано позже', 'info')
-    return redirect(url_for('settings'))
-
+# YouTube OAuth
 @app.route('/connect/youtube')
 def connect_youtube():
-    return connect_platform('youtube')
+    if not YOUTUBE_CLIENT_ID or not YOUTUBE_CLIENT_SECRET:
+        flash('YouTube OAuth не настроен. Добавьте YOUTUBE_CLIENT_ID и YOUTUBE_CLIENT_SECRET в Railway Variables.', 'error')
+        return redirect(url_for('settings'))
+    
+    # Генерируем state для безопасности
+    state = secrets.token_urlsafe(32)
+    session['youtube_oauth_state'] = state
+    
+    # Параметры для OAuth запроса
+    params = {
+        'client_id': YOUTUBE_CLIENT_ID,
+        'redirect_uri': YOUTUBE_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly',
+        'access_type': 'offline',
+        'prompt': 'consent',
+        'state': state
+    }
+    
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return redirect(auth_url)
+
+@app.route('/authorize/youtube')
+def authorize_youtube():
+    try:
+        # Проверяем state
+        state = request.args.get('state')
+        if not state or state != session.get('youtube_oauth_state'):
+            flash('Ошибка безопасности при авторизации', 'error')
+            return redirect(url_for('settings'))
+        
+        code = request.args.get('code')
+        if not code:
+            error = request.args.get('error', 'Неизвестная ошибка')
+            flash(f'Ошибка авторизации: {error}', 'error')
+            return redirect(url_for('settings'))
+        
+        # Обмениваем код на токен
+        token_data = {
+            'code': code,
+            'client_id': YOUTUBE_CLIENT_ID,
+            'client_secret': YOUTUBE_CLIENT_SECRET,
+            'redirect_uri': YOUTUBE_REDIRECT_URI,
+            'grant_type': 'authorization_code'
+        }
+        
+        token_response = requests.post('https://oauth2.googleapis.com/token', data=token_data)
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        
+        # Получаем информацию о канале
+        headers = {'Authorization': f"Bearer {tokens['access_token']}"}
+        channel_response = requests.get(
+            'https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true',
+            headers=headers
+        )
+        
+        if channel_response.status_code == 200:
+            channel_data = channel_response.json()
+            if channel_data.get('items'):
+                channel = channel_data['items'][0]
+                channel_title = channel['snippet']['title']
+                channel_id = channel['id']
+            else:
+                channel_title = 'YouTube канал'
+                channel_id = None
+        else:
+            channel_title = 'YouTube канал'
+            channel_id = None
+        
+        # Сохраняем или обновляем аккаунт
+        account = SocialAccount.query.filter_by(platform='youtube').first()
+        if account:
+            account.is_active = True
+            account.access_token = tokens['access_token']
+            account.refresh_token = tokens.get('refresh_token')
+            account.token_expires_at = datetime.utcnow() + timedelta(seconds=tokens.get('expires_in', 3600))
+            account.platform_username = channel_title
+            account.platform_user_id = channel_id
+        else:
+            account = SocialAccount(
+                platform='youtube',
+                is_active=True,
+                access_token=tokens['access_token'],
+                refresh_token=tokens.get('refresh_token'),
+                token_expires_at=datetime.utcnow() + timedelta(seconds=tokens.get('expires_in', 3600)),
+                platform_username=channel_title,
+                platform_user_id=channel_id
+            )
+            db.session.add(account)
+        
+        db.session.commit()
+        flash('YouTube успешно подключён!', 'success')
+        return redirect(url_for('settings'))
+        
+    except Exception as e:
+        flash(f'Ошибка подключения YouTube: {str(e)}', 'error')
+        return redirect(url_for('settings'))
 
 @app.route('/connect/instagram')
 def connect_instagram():
-    return connect_platform('instagram')
+    flash('Подключение Instagram будет реализовано позже', 'info')
+    return redirect(url_for('settings'))
 
 @app.route('/connect/tiktok')
 def connect_tiktok():
-    return connect_platform('tiktok')
+    flash('Подключение TikTok будет реализовано позже', 'info')
+    return redirect(url_for('settings'))
 
 @app.route('/connect/vk')
 def connect_vk():
-    return connect_platform('vk')
+    flash('Подключение VK будет реализовано позже', 'info')
+    return redirect(url_for('settings'))
 
 @app.route('/disconnect/<platform>')
 def disconnect_platform(platform):
