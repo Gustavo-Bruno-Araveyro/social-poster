@@ -2,10 +2,11 @@ from flask import Flask, render_template, jsonify, request, flash, redirect, url
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 import os
+import traceback
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-12345')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social_poster.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///social_poster.db').replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -30,32 +31,57 @@ class Post(db.Model):
     status = db.Column(db.String(50), default='draft')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# Инициализация базы
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"Ошибка создания БД: {e}")
+
+# Обработчик ошибок
+@app.errorhandler(500)
+def internal_error(error):
+    return f"<h1>Ошибка сервера</h1><pre>{traceback.format_exc()}</pre>", 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    return f"<h1>Ошибка</h1><pre>{str(e)}\n{traceback.format_exc()}</pre>", 500
+
 # Маршруты
 @app.route('/')
 def index():
-    return redirect(url_for('dashboard'))
+    try:
+        return redirect(url_for('dashboard'))
+    except Exception as e:
+        return f"Ошибка: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/dashboard')
 def dashboard():
-    connected = {
-        'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
-        'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
-        'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
-        'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
-    }
-    user = {'name': 'Admin', 'email': 'admin@local'}
-    return render_template('dashboard.html', connected=connected, user=user)
+    try:
+        connected = {
+            'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
+            'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
+            'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
+            'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
+        }
+        user = {'name': 'Admin', 'email': 'admin@local'}
+        return render_template('dashboard.html', connected=connected, user=user)
+    except Exception as e:
+        return f"Ошибка dashboard: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/settings')
 def settings():
-    platforms = {
-        'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
-        'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
-        'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
-        'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
-    }
-    user = {'name': 'Admin', 'email': 'admin@local'}
-    return render_template('settings.html', platforms=platforms, user=user)
+    try:
+        platforms = {
+            'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
+            'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
+            'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
+            'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
+        }
+        user = {'name': 'Admin', 'email': 'admin@local'}
+        return render_template('settings.html', platforms=platforms, user=user)
+    except Exception as e:
+        return f"Ошибка settings: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/logout')
 def logout():
@@ -84,11 +110,14 @@ def connect_vk():
 
 @app.route('/disconnect/<platform>')
 def disconnect_platform(platform):
-    account = SocialAccount.query.filter_by(platform=platform, is_active=True).first()
-    if account:
-        account.is_active = False
-        db.session.commit()
-        flash(f'{platform.capitalize()} отключён', 'success')
+    try:
+        account = SocialAccount.query.filter_by(platform=platform, is_active=True).first()
+        if account:
+            account.is_active = False
+            db.session.commit()
+            flash(f'{platform.capitalize()} отключён', 'success')
+    except Exception as e:
+        flash(f'Ошибка: {str(e)}', 'error')
     return redirect(url_for('settings'))
 
 @app.route('/api/publish', methods=['POST'])
@@ -112,8 +141,5 @@ def publish_post():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 400
 
-# Инициализация
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000)
