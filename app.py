@@ -5,7 +5,6 @@ from datetime import datetime
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
-from urllib.parse import urlencode
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
@@ -86,6 +85,7 @@ def load_user(user_id):
 # =========================
 
 def get_google_provider_cfg():
+<<<<<<< HEAD
     try:
         return requests.get(GOOGLE_DISCOVERY_URL).json()
     except Exception as e:
@@ -97,6 +97,9 @@ def index():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
+=======
+    return requests.get(GOOGLE_DISCOVERY_URL).json()
+>>>>>>> aa69492c698291d63c7b26110e8c0367bb2baf4f
 
 @app.route('/login')
 def login():
@@ -106,6 +109,7 @@ def login():
 
 @app.route('/login/google')
 def login_google():
+<<<<<<< HEAD
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
         flash('Ошибка конфигурации OAuth. Обратитесь к администратору.', 'error')
         return redirect(url_for('login'))
@@ -118,11 +122,20 @@ def login_google():
     authorization_endpoint = google_provider_cfg["authorization_endpoint"]
     redirect_uri = url_for('authorize_google', _external=True)
     
+=======
+    google_provider_cfg = get_google_provider_cfg()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+    
+>>>>>>> aa69492c698291d63c7b26110e8c0367bb2baf4f
     request_uri = (
         f"{authorization_endpoint}?"
         f"response_type=code&"
         f"client_id={GOOGLE_CLIENT_ID}&"
+<<<<<<< HEAD
         f"redirect_uri={redirect_uri}&"
+=======
+        f"redirect_uri={request.url_root}authorize/google&"
+>>>>>>> aa69492c698291d63c7b26110e8c0367bb2baf4f
         f"scope=openid%20email%20profile"
     )
     
@@ -131,6 +144,7 @@ def login_google():
 @app.route('/authorize/google')
 def authorize_google():
     code = request.args.get('code')
+<<<<<<< HEAD
     if not code:
         flash('Ошибка авторизации: код не получен', 'error')
         return redirect(url_for('login'))
@@ -185,6 +199,50 @@ def authorize_google():
             return redirect(url_for('login'))
     except Exception as e:
         flash(f'Ошибка авторизации: {str(e)}', 'error')
+=======
+    
+    google_provider_cfg = get_google_provider_cfg()
+    token_endpoint = google_provider_cfg["token_endpoint"]
+    
+    token_url, headers, body = (
+        token_endpoint,
+        {'Content-Type': 'application/x-www-form-urlencoded'},
+        {
+            'code': code,
+            'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': request.url_root + 'authorize/google',
+            'grant_type': 'authorization_code'
+        }
+    )
+    
+    token_response = requests.post(token_url, headers=headers, data=body)
+    tokens = token_response.json()
+    
+    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+    uri, headers, body = userinfo_endpoint, {'Authorization': f'Bearer {tokens["access_token"]}'}, None
+    
+    userinfo_response = requests.get(uri, headers=headers)
+    userinfo = userinfo_response.json()
+    
+    if userinfo.get('email_verified'):
+        google_id = userinfo['sub']
+        email = userinfo['email']
+        name = userinfo.get('name')
+        
+        user = User.query.filter_by(google_id=google_id).first()
+        
+        if not user:
+            user = User(email=email, name=name, google_id=google_id)
+            db.session.add(user)
+            db.session.commit()
+        
+        login_user(user)
+        flash('Успешный вход!', 'success')
+        return redirect(url_for('dashboard'))
+    else:
+        flash('Email не подтвержден Google', 'error')
+>>>>>>> aa69492c698291d63c7b26110e8c0367bb2baf4f
         return redirect(url_for('login'))
 
 @app.route('/logout')
@@ -197,6 +255,12 @@ def logout():
 # =========================
 # ОСНОВНЫЕ СТРАНИЦЫ
 # =========================
+
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
 
 @app.route('/dashboard')
 @login_required
@@ -275,3 +339,83 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5000)
+<<<<<<< HEAD
+=======
+```
+
+**Commit changes** → готово!
+
+---
+
+## 📦 ШАГ 2: Обнови `requirements.txt`
+
+GitHub → файл `requirements.txt` → Edit → **УДАЛИ ВСЁ** → Вставь:
+```
+Flask==3.0.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Werkzeug==3.0.1
+requests==2.31.0
+gunicorn==21.2.0
+```
+
+**Commit changes** → готово!
+
+---
+
+## 📦 ШАГ 3: Проверь переменные в Railway
+
+1. Зайди на Railway → проект `social-poster` → сервис `web`
+2. Вкладка **"Variables"**
+3. Убедись что есть **ТРИ** переменные:
+```
+GOOGLE_CLIENT_ID = твой_client_id_от_google
+GOOGLE_CLIENT_SECRET = твой_client_secret
+SECRET_KEY = любая_длинная_строка_12345abcd
+```
+
+Если нет - добавь!
+
+---
+
+## 📦 ШАГ 4: Получи Google OAuth ключи (если еще нет)
+
+**БЫСТРАЯ ВЕРСИЯ:**
+
+1. Зайди https://console.cloud.google.com
+2. Создай проект "Social Poster"
+3. APIs & Services → Credentials → Create OAuth Client ID
+4. Web application
+5. Authorized redirect URIs:
+```
+https://web-production-e92c4.up.railway.app/authorize/google
+```
+6. Скопируй Client ID и Client Secret
+7. Вставь в Railway Variables
+
+---
+
+## 🚀 ШАГ 5: Подожди деплой
+
+Railway увидит изменения на GitHub и автоматом задеплоит (2 минуты).
+
+Обнови страницу Railway - должно быть **"Deployment successful"**.
+
+---
+
+## ✅ ШАГ 6: ПРОВЕРКА
+
+1. Открой `https://web-production-e92c4.up.railway.app`
+2. Нажми **"Войти через Google"**
+3. Выбери Google аккаунт
+4. **ЗАЛОГИНИШЬСЯ!** 🎉
+
+---
+
+## ⚠️ Если не работает:
+
+**Проблема 1: "redirect_uri_mismatch"**
+- Проверь что в Google Cloud добавлен ТОЧНЫЙ URI:
+```
+  https://web-production-e92c4.up.railway.app/authorize/google
+>>>>>>> aa69492c698291d63c7b26110e8c0367bb2baf4f
