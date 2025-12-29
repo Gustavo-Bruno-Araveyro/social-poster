@@ -22,6 +22,15 @@ GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID') or os.environ.get('YOUTUBE
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET') or os.environ.get('YOUTUBE_CLIENT_SECRET')
 GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://web-production-e92c4.up.railway.app/authorize/google')
 
+# Отладочный вывод
+print("=" * 50)
+print("🔍 ПРОВЕРКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ:")
+print(f"GOOGLE_CLIENT_ID: {'✅ ЕСТЬ' if GOOGLE_CLIENT_ID else '❌ НЕТ'} ({GOOGLE_CLIENT_ID[:20] + '...' if GOOGLE_CLIENT_ID else 'None'})")
+print(f"GOOGLE_CLIENT_SECRET: {'✅ ЕСТЬ' if GOOGLE_CLIENT_SECRET else '❌ НЕТ'} ({GOOGLE_CLIENT_SECRET[:10] + '...' if GOOGLE_CLIENT_SECRET else 'None'})")
+print(f"YOUTUBE_CLIENT_ID: {'✅ ЕСТЬ' if os.environ.get('YOUTUBE_CLIENT_ID') else '❌ НЕТ'}")
+print(f"YOUTUBE_CLIENT_SECRET: {'✅ ЕСТЬ' if os.environ.get('YOUTUBE_CLIENT_SECRET') else '❌ НЕТ'}")
+print("=" * 50)
+
 # Конфигурация YouTube OAuth (для подключения YouTube)
 YOUTUBE_CLIENT_ID = os.environ.get('YOUTUBE_CLIENT_ID')
 YOUTUBE_CLIENT_SECRET = os.environ.get('YOUTUBE_CLIENT_SECRET')
