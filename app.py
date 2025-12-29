@@ -76,18 +76,17 @@ class Post(db.Model):
 
 def get_default_user():
     """Создаёт или возвращает дефолтного пользователя"""
-    with app.app_context():
-        user = User.query.first()
-        if not user:
-            # Создаём дефолтного пользователя
-            user = User(
-                email='admin@local',
-                name='Admin',
-                google_id=None
-            )
-            db.session.add(user)
-            db.session.commit()
-        return user
+    user = User.query.first()
+    if not user:
+        # Создаём дефолтного пользователя
+        user = User(
+            email='admin@local',
+            name='Admin',
+            google_id=None
+        )
+        db.session.add(user)
+        db.session.commit()
+    return user
 
 # =========================
 # МАРШРУТЫ
@@ -117,6 +116,31 @@ def settings():
         if account.is_active:
             platforms_status[account.platform] = account
     return render_template('settings.html', platforms=platforms_status, user=user)
+
+@app.route('/logout')
+def logout():
+    """Заглушка для logout - просто редирект на dashboard"""
+    return redirect(url_for('dashboard'))
+
+@app.route('/connect/youtube')
+def connect_youtube():
+    flash('Подключение YouTube будет реализовано на следующем этапе', 'info')
+    return redirect(url_for('settings'))
+
+@app.route('/connect/instagram')
+def connect_instagram():
+    flash('Подключение Instagram будет реализовано на следующем этапе', 'info')
+    return redirect(url_for('settings'))
+
+@app.route('/connect/tiktok')
+def connect_tiktok():
+    flash('Подключение TikTok будет реализовано на следующем этапе', 'info')
+    return redirect(url_for('settings'))
+
+@app.route('/connect/vk')
+def connect_vk():
+    flash('Подключение VK будет реализовано на следующем этапе', 'info')
+    return redirect(url_for('settings'))
 
 @app.route('/api/publish', methods=['POST'])
 def publish_post():
