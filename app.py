@@ -35,11 +35,15 @@ GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://web-product
 
 # Отладочный вывод - показываем ВСЕ переменные окружения
 print("=" * 50)
-print("🔍 ВСЕ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ (первые 50):")
-for key, value in list(os.environ.items())[:50]:
-    if 'CLIENT' in key or 'SECRET' in key or 'GOOGLE' in key or 'YOUTUBE' in key:
-        masked = '*' * 8 if value else 'None'
+print("🔍 ВСЕ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ С GOOGLE/CLIENT/SECRET:")
+all_vars_found = False
+for key, value in os.environ.items():
+    if 'CLIENT' in key.upper() or 'SECRET' in key.upper() or 'GOOGLE' in key.upper() or 'YOUTUBE' in key.upper():
+        masked = '*' * min(20, len(value)) if value else 'None'
         print(f"  {key} = {masked}")
+        all_vars_found = True
+if not all_vars_found:
+    print("  ❌ НИ ОДНОЙ ПЕРЕМЕННОЙ НЕ НАЙДЕНО!")
 print("=" * 50)
 print(f"GOOGLE_CLIENT_ID: {'✅ ЕСТЬ' if GOOGLE_CLIENT_ID else '❌ НЕТ'}")
 print(f"GOOGLE_CLIENT_SECRET: {'✅ ЕСТЬ' if GOOGLE_CLIENT_SECRET else '❌ НЕТ'}")
