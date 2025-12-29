@@ -1,5 +1,6 @@
 from flask import Flask, render_template, jsonify, request, flash, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
 import os
 import traceback
@@ -13,15 +14,32 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
-# Конфигурация YouTube OAuth
+# Конфигурация Google OAuth (для авторизации пользователей)
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID') or os.environ.get('YOUTUBE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET') or os.environ.get('YOUTUBE_CLIENT_SECRET')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://web-production-e92c4.up.railway.app/authorize/google')
+
+# Конфигурация YouTube OAuth (для подключения YouTube)
 YOUTUBE_CLIENT_ID = os.environ.get('YOUTUBE_CLIENT_ID')
 YOUTUBE_CLIENT_SECRET = os.environ.get('YOUTUBE_CLIENT_SECRET')
 YOUTUBE_REDIRECT_URI = os.environ.get('YOUTUBE_REDIRECT_URI', 'https://web-production-e92c4.up.railway.app/authorize/youtube')
 
 # Модели
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120))
+    google_id = db.Column(db.String(120), unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    social_accounts = db.relationship('SocialAccount', backref='user', lazy=True)
+    posts = db.relationship('Post', backref='user', lazy=True)
+
 class SocialAccount(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     platform = db.Column(db.String(50), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     platform_username = db.Column(db.String(200))
@@ -32,6 +50,7 @@ class SocialAccount(db.Model):
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     youtube_enabled = db.Column(db.Boolean, default=False)
     youtube_title = db.Column(db.String(100))
     instagram_enabled = db.Column(db.Boolean, default=False)
@@ -42,6 +61,10 @@ class Post(db.Model):
     vk_caption = db.Column(db.Text)
     status = db.Column(db.String(50), default='draft')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Инициализация базы
 with app.app_context():
@@ -59,58 +82,141 @@ def internal_error(error):
 def handle_exception(e):
     return f"<h1>Ошибка</h1><pre>{str(e)}\n{traceback.format_exc()}</pre>", 500
 
-# Маршруты
+# Маршруты - Авторизация
 @app.route('/')
 def index():
-    try:
+    if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    except Exception as e:
-        return f"Ошибка: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
+    return redirect(url_for('login'))
 
+@app.route('/login')
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+@app.route('/login/google')
+def login_google():
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        flash('Google OAuth не настроен. Добавьте GOOGLE_CLIENT_ID и GOOGLE_CLIENT_SECRET в Railway Variables.', 'error')
+        return redirect(url_for('login'))
+    
+    state = secrets.token_urlsafe(32)
+    session['google_oauth_state'] = state
+    
+    params = {
+        'client_id': GOOGLE_CLIENT_ID,
+        'redirect_uri': GOOGLE_REDIRECT_URI,
+        'response_type': 'code',
+        'scope': 'openid email profile',
+        'access_type': 'offline',
+        'prompt': 'consent',
+        'state': state
+    }
+    
+    auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+    return redirect(auth_url)
+
+@app.route('/authorize/google')
+def authorize_google():
+    try:
+        state = request.args.get('state')
+        if not state or state != session.get('google_oauth_state'):
+            flash('Ошибка безопасности при авторизации', 'error')
+            return redirect(url_for('login'))
+        
+        code = request.args.get('code')
+        if not code:
+            error = request.args.get('error', 'Неизвестная ошибка')
+            flash(f'Ошибка авторизации: {error}', 'error')
+            return redirect(url_for('login'))
+        
+        # Обмениваем код на токен
+        token_data = {
+            'code': code,
+            'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': GOOGLE_REDIRECT_URI,
+            'grant_type': 'authorization_code'
+        }
+        
+        token_response = requests.post('https://oauth2.googleapis.com/token', data=token_data)
+        token_response.raise_for_status()
+        tokens = token_response.json()
+        
+        # Получаем информацию о пользователе
+        headers = {'Authorization': f"Bearer {tokens['access_token']}"}
+        userinfo_response = requests.get('https://www.googleapis.com/oauth2/v2/userinfo', headers=headers)
+        userinfo_response.raise_for_status()
+        userinfo = userinfo_response.json()
+        
+        # Создаём или находим пользователя
+        user = User.query.filter_by(google_id=userinfo['id']).first()
+        if not user:
+            user = User(
+                email=userinfo['email'],
+                name=userinfo.get('name', userinfo['email']),
+                google_id=userinfo['id']
+            )
+            db.session.add(user)
+            db.session.commit()
+        
+        login_user(user)
+        flash('Успешный вход!', 'success')
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        flash(f'Ошибка авторизации: {str(e)}', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Вы вышли из системы', 'info')
+    return redirect(url_for('login'))
+
+# Маршруты - Основные
 @app.route('/dashboard')
+@login_required
 def dashboard():
     try:
         connected = {
-            'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
-            'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
-            'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
-            'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
+            'youtube': SocialAccount.query.filter_by(user_id=current_user.id, platform='youtube', is_active=True).first(),
+            'instagram': SocialAccount.query.filter_by(user_id=current_user.id, platform='instagram', is_active=True).first(),
+            'tiktok': SocialAccount.query.filter_by(user_id=current_user.id, platform='tiktok', is_active=True).first(),
+            'vk': SocialAccount.query.filter_by(user_id=current_user.id, platform='vk', is_active=True).first(),
         }
-        user = {'name': 'Admin', 'email': 'admin@local'}
-        return render_template('dashboard.html', connected=connected, user=user)
+        return render_template('dashboard.html', connected=connected, user=current_user)
     except Exception as e:
         return f"Ошибка dashboard: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
 
 @app.route('/settings')
+@login_required
 def settings():
     try:
         platforms = {
-            'youtube': SocialAccount.query.filter_by(platform='youtube', is_active=True).first(),
-            'instagram': SocialAccount.query.filter_by(platform='instagram', is_active=True).first(),
-            'tiktok': SocialAccount.query.filter_by(platform='tiktok', is_active=True).first(),
-            'vk': SocialAccount.query.filter_by(platform='vk', is_active=True).first(),
+            'youtube': SocialAccount.query.filter_by(user_id=current_user.id, platform='youtube', is_active=True).first(),
+            'instagram': SocialAccount.query.filter_by(user_id=current_user.id, platform='instagram', is_active=True).first(),
+            'tiktok': SocialAccount.query.filter_by(user_id=current_user.id, platform='tiktok', is_active=True).first(),
+            'vk': SocialAccount.query.filter_by(user_id=current_user.id, platform='vk', is_active=True).first(),
         }
-        user = {'name': 'Admin', 'email': 'admin@local'}
-        return render_template('settings.html', platforms=platforms, user=user)
+        return render_template('settings.html', platforms=platforms, user=current_user)
     except Exception as e:
         return f"Ошибка settings: {str(e)}<pre>{traceback.format_exc()}</pre>", 500
 
-@app.route('/logout')
-def logout():
-    return redirect(url_for('dashboard'))
-
-# YouTube OAuth
+# YouTube OAuth (для подключения YouTube канала)
 @app.route('/connect/youtube')
+@login_required
 def connect_youtube():
     if not YOUTUBE_CLIENT_ID or not YOUTUBE_CLIENT_SECRET:
         flash('YouTube OAuth не настроен. Добавьте YOUTUBE_CLIENT_ID и YOUTUBE_CLIENT_SECRET в Railway Variables.', 'error')
         return redirect(url_for('settings'))
     
-    # Генерируем state для безопасности
     state = secrets.token_urlsafe(32)
     session['youtube_oauth_state'] = state
+    session['youtube_oauth_user_id'] = current_user.id
     
-    # Параметры для OAuth запроса
     params = {
         'client_id': YOUTUBE_CLIENT_ID,
         'redirect_uri': YOUTUBE_REDIRECT_URI,
@@ -125,9 +231,9 @@ def connect_youtube():
     return redirect(auth_url)
 
 @app.route('/authorize/youtube')
+@login_required
 def authorize_youtube():
     try:
-        # Проверяем state
         state = request.args.get('state')
         if not state or state != session.get('youtube_oauth_state'):
             flash('Ошибка безопасности при авторизации', 'error')
@@ -173,7 +279,7 @@ def authorize_youtube():
             channel_id = None
         
         # Сохраняем или обновляем аккаунт
-        account = SocialAccount.query.filter_by(platform='youtube').first()
+        account = SocialAccount.query.filter_by(user_id=current_user.id, platform='youtube').first()
         if account:
             account.is_active = True
             account.access_token = tokens['access_token']
@@ -183,6 +289,7 @@ def authorize_youtube():
             account.platform_user_id = channel_id
         else:
             account = SocialAccount(
+                user_id=current_user.id,
                 platform='youtube',
                 is_active=True,
                 access_token=tokens['access_token'],
@@ -202,24 +309,28 @@ def authorize_youtube():
         return redirect(url_for('settings'))
 
 @app.route('/connect/instagram')
+@login_required
 def connect_instagram():
     flash('Подключение Instagram будет реализовано позже', 'info')
     return redirect(url_for('settings'))
 
 @app.route('/connect/tiktok')
+@login_required
 def connect_tiktok():
     flash('Подключение TikTok будет реализовано позже', 'info')
     return redirect(url_for('settings'))
 
 @app.route('/connect/vk')
+@login_required
 def connect_vk():
     flash('Подключение VK будет реализовано позже', 'info')
     return redirect(url_for('settings'))
 
 @app.route('/disconnect/<platform>')
+@login_required
 def disconnect_platform(platform):
     try:
-        account = SocialAccount.query.filter_by(platform=platform, is_active=True).first()
+        account = SocialAccount.query.filter_by(user_id=current_user.id, platform=platform, is_active=True).first()
         if account:
             account.is_active = False
             db.session.commit()
@@ -229,10 +340,12 @@ def disconnect_platform(platform):
     return redirect(url_for('settings'))
 
 @app.route('/api/publish', methods=['POST'])
+@login_required
 def publish_post():
     try:
         data = request.form
         post = Post(
+            user_id=current_user.id,
             youtube_enabled=data.get('youtube_enabled') == 'true',
             youtube_title=data.get('youtube_title', ''),
             instagram_enabled=data.get('instagram_enabled') == 'true',
