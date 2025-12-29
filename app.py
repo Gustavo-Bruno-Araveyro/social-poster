@@ -11,14 +11,8 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///social_poster.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Google OAuth Config
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
-login_manager.login_view = 'login'
 
 # =========================
 # МОДЕЛИ БАЗЫ ДАННЫХ
@@ -76,157 +70,63 @@ class Post(db.Model):
     published_at = db.Column(db.DateTime)
     status = db.Column(db.String(50), default='draft')
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
 # =========================
-# GOOGLE OAUTH
+# ПОЛУЧЕНИЕ ДЕФОЛТНОГО ПОЛЬЗОВАТЕЛЯ (БЕЗ АВТОРИЗАЦИИ)
 # =========================
 
-def get_google_provider_cfg():
-    try:
-        return requests.get(GOOGLE_DISCOVERY_URL).json()
-    except Exception as e:
-        print(f"Ошибка получения Google config: {e}")
-        return None
+def get_default_user():
+    """Создаёт или возвращает дефолтного пользователя"""
+    with app.app_context():
+        user = User.query.first()
+        if not user:
+            # Создаём дефолтного пользователя
+            user = User(
+                email='admin@local',
+                name='Admin',
+                google_id=None
+            )
+            db.session.add(user)
+            db.session.commit()
+        return user
+
+# =========================
+# МАРШРУТЫ
+# =========================
 
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
-
-@app.route('/login')
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    return render_template('login.html')
-
-@app.route('/login/google')
-def login_google():
-    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        flash('Ошибка конфигурации OAuth. Обратитесь к администратору.', 'error')
-        return redirect(url_for('login'))
-    
-    google_provider_cfg = get_google_provider_cfg()
-    if not google_provider_cfg:
-        flash('Ошибка подключения к Google. Попробуйте позже.', 'error')
-        return redirect(url_for('login'))
-    
-    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
-    redirect_uri = url_for('authorize_google', _external=True)
-    
-    request_uri = (
-        f"{authorization_endpoint}?"
-        f"response_type=code&"
-        f"client_id={GOOGLE_CLIENT_ID}&"
-        f"redirect_uri={redirect_uri}&"
-        f"scope=openid%20email%20profile"
-    )
-    
-    return redirect(request_uri)
-
-@app.route('/authorize/google')
-def authorize_google():
-    code = request.args.get('code')
-    if not code:
-        flash('Ошибка авторизации: код не получен', 'error')
-        return redirect(url_for('login'))
-    
-    google_provider_cfg = get_google_provider_cfg()
-    if not google_provider_cfg:
-        flash('Ошибка подключения к Google. Попробуйте позже.', 'error')
-        return redirect(url_for('login'))
-    
-    token_endpoint = google_provider_cfg["token_endpoint"]
-    redirect_uri = url_for('authorize_google', _external=True)
-    
-    token_url = token_endpoint
-    token_data = {
-        'code': code,
-        'client_id': GOOGLE_CLIENT_ID,
-        'client_secret': GOOGLE_CLIENT_SECRET,
-        'redirect_uri': redirect_uri,
-        'grant_type': 'authorization_code'
-    }
-    
-    try:
-        token_response = requests.post(token_url, data=token_data)
-        token_response.raise_for_status()
-        tokens = token_response.json()
-        
-        userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
-        userinfo_response = requests.get(
-            userinfo_endpoint,
-            headers={'Authorization': f'Bearer {tokens["access_token"]}'}
-        )
-        userinfo_response.raise_for_status()
-        userinfo = userinfo_response.json()
-        
-        if userinfo.get('email_verified'):
-            google_id = userinfo['sub']
-            email = userinfo['email']
-            name = userinfo.get('name')
-            
-            user = User.query.filter_by(google_id=google_id).first()
-            
-            if not user:
-                user = User(email=email, name=name, google_id=google_id)
-                db.session.add(user)
-                db.session.commit()
-            
-            login_user(user)
-            flash('Успешный вход!', 'success')
-            return redirect(url_for('dashboard'))
-        else:
-            flash('Email не подтвержден Google', 'error')
-            return redirect(url_for('login'))
-    except Exception as e:
-        flash(f'Ошибка авторизации: {str(e)}', 'error')
-        return redirect(url_for('login'))
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('Вы вышли из системы', 'info')
-    return redirect(url_for('login'))
-
-# =========================
-# ОСНОВНЫЕ СТРАНИЦЫ
-# =========================
+    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
-@login_required
 def dashboard():
+    user = get_default_user()
     connected_platforms = {
-        'youtube': SocialAccount.query.filter_by(user_id=current_user.id, platform='youtube', is_active=True).first(),
-        'instagram': SocialAccount.query.filter_by(user_id=current_user.id, platform='instagram', is_active=True).first(),
-        'tiktok': SocialAccount.query.filter_by(user_id=current_user.id, platform='tiktok', is_active=True).first(),
-        'vk': SocialAccount.query.filter_by(user_id=current_user.id, platform='vk', is_active=True).first(),
+        'youtube': SocialAccount.query.filter_by(user_id=user.id, platform='youtube', is_active=True).first(),
+        'instagram': SocialAccount.query.filter_by(user_id=user.id, platform='instagram', is_active=True).first(),
+        'tiktok': SocialAccount.query.filter_by(user_id=user.id, platform='tiktok', is_active=True).first(),
+        'vk': SocialAccount.query.filter_by(user_id=user.id, platform='vk', is_active=True).first(),
     }
-    return render_template('dashboard.html', connected=connected_platforms, user=current_user)
+    return render_template('dashboard.html', connected=connected_platforms, user=user)
 
 @app.route('/settings')
-@login_required
 def settings():
-    social_accounts = SocialAccount.query.filter_by(user_id=current_user.id).all()
+    user = get_default_user()
+    social_accounts = SocialAccount.query.filter_by(user_id=user.id).all()
     platforms_status = {'youtube': False, 'instagram': False, 'tiktok': False, 'vk': False}
     for account in social_accounts:
         if account.is_active:
             platforms_status[account.platform] = account
-    return render_template('settings.html', platforms=platforms_status, user=current_user)
+    return render_template('settings.html', platforms=platforms_status, user=user)
 
 @app.route('/api/publish', methods=['POST'])
-@login_required
 def publish_post():
     try:
+        user = get_default_user()
         data = request.form
         file = request.files.get('video')
         
         post = Post(
-            user_id=current_user.id,
+            user_id=user.id,
             youtube_enabled=data.get('youtube_enabled') == 'true',
             youtube_title=data.get('youtube_title'),
             youtube_description=data.get('youtube_description'),
@@ -255,15 +155,14 @@ def publish_post():
         return jsonify({'success': False, 'message': f'Ошибка: {str(e)}'}), 400
 
 @app.route('/connect/<platform>')
-@login_required
 def connect_platform(platform):
     flash(f'Подключение {platform} будет реализовано на следующем этапе', 'info')
     return redirect(url_for('settings'))
 
 @app.route('/disconnect/<platform>')
-@login_required
 def disconnect_platform(platform):
-    account = SocialAccount.query.filter_by(user_id=current_user.id, platform=platform).first()
+    user = get_default_user()
+    account = SocialAccount.query.filter_by(user_id=user.id, platform=platform).first()
     if account:
         account.is_active = False
         db.session.commit()
@@ -273,4 +172,6 @@ def disconnect_platform(platform):
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        # Создаём дефолтного пользователя при первом запуске
+        get_default_user()
     app.run(debug=True, host='0.0.0.0', port=5000)
