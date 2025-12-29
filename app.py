@@ -18,19 +18,17 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 # Конфигурация Google OAuth (для авторизации пользователей)
-# Пробуем все возможные варианты имён переменных
-GOOGLE_CLIENT_ID = (
-    os.environ.get('GOOGLE_CLIENT_ID') or 
-    os.environ.get('YOUTUBE_CLIENT_ID') or
-    os.getenv('GOOGLE_CLIENT_ID') or
-    os.getenv('YOUTUBE_CLIENT_ID')
-)
-GOOGLE_CLIENT_SECRET = (
-    os.environ.get('GOOGLE_CLIENT_SECRET') or 
-    os.environ.get('YOUTUBE_CLIENT_SECRET') or
-    os.getenv('GOOGLE_CLIENT_SECRET') or
-    os.getenv('YOUTUBE_CLIENT_SECRET')
-)
+# Читаем переменные напрямую из окружения
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID') or os.environ.get('YOUTUBE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET') or os.environ.get('YOUTUBE_CLIENT_SECRET')
+
+# Если переменные не загружены, пробуем захардкодить для теста (УДАЛИ ПОСЛЕ ПРОВЕРКИ!)
+if not GOOGLE_CLIENT_ID:
+    GOOGLE_CLIENT_ID = '45560358300-iluk2n9sq49i51mmgr0q4c87bolne55k.apps.googleusercontent.com'
+    print("⚠️ ИСПОЛЬЗУЮ ЗАХАРДКОЖЕННЫЙ GOOGLE_CLIENT_ID!")
+if not GOOGLE_CLIENT_SECRET:
+    GOOGLE_CLIENT_SECRET = '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'
+    print("⚠️ ИСПОЛЬЗУЮ ЗАХАРДКОЖЕННЫЙ GOOGLE_CLIENT_SECRET!")
 GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI', 'https://web-production-e92c4.up.railway.app/authorize/google')
 
 # Отладочный вывод - показываем ВСЕ переменные окружения
